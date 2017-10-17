@@ -1,5 +1,5 @@
 [package]
-name = "ces"
+name = "rust_ecs"
 version = "0.1.0"
 authors = ["ahrimen <terence.amato@gmail.com>"]
 

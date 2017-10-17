@@ -1,58 +1,64 @@
-#[derive(Debug, PartialEq)]
-enum Event {
-    Render,
+#[derive(Debug)]
+enum SystemTypes {
+    Renderer,
+}
+
+#[derive(Debug)]
+enum ComponetTypes {
+    Renderable,
 }
 
 trait System {
-    fn process(&self);
-    fn listening(&self, event: &Event) -> bool;
+    fn register_ent(&mut self, ent: usize);
+    fn process(&self, world: &World);
 }
 
 #[derive(Debug)]
 struct Renderer {
-    who:i32,
-    listens_to: Event,
+    who:Vec<usize>,
 }
 
 impl Renderer {
     fn create() -> Self {
         Renderer {
-            who: 0,
-            listens_to: Event::Render,
+            who: Vec::new(),
         }
     }
 }
 
 impl System for Renderer {
-    fn process(&self) {
-        println!("Rendering {:?}!", self);
+    fn register_ent(&mut self, ent: usize) {
+        self.who.push(ent);
     }
 
-    fn listening(&self, event: &Event) -> bool
-    {
-        self.listens_to == *event
+    fn process(&self, world: &World) {
+        for ent in &self.who {
+            let gfx = &world.gfx_componets[*ent];
+            println!("Rendering {:?}!", gfx as Renderable);
+        }
     }
 }
 
 // find a way to pass in a RenderData, which is a datatype that has different properties
 type SystemVec<'a> = Vec<Box<System + 'a>>;
+type ComponetVec<'a> = Vec<Box<Componet + 'a>>;
 struct World<'a> {
     systems: SystemVec<'a>,
-    events: Vec<Event>,
 
     // components
+    gfx_componets: ComponetVec<'a>,
 
+    /// list of unique ids for the entities
+    ent_list: Vec<usize>,
 }
+
 impl<'a> World<'a> {
     fn new() -> Self {
         World {
             systems: Vec::new(),
-            events: Vec::new(),
+            gfx_componets: Vec::new(),
+            ent_list: Vec::new(),
         }
-    }
-
-    fn add_event(&mut self, event: Event) {
-        self.events.push(event);
     }
 
     fn add_system<S: System + 'a>(&mut self, system: S) {
@@ -60,28 +66,55 @@ impl<'a> World<'a> {
     }
 
     fn run(&self) {
-        for evt in &self.events {
-            for sys in &self.systems {
-                if sys.listening(evt) {
-                    sys.process();
-                }
-            }
+        for sys in &self.systems {
+            sys.process(self);
         }
     }
 
     fn clear(&mut self) {
         self.systems = Vec::new();
-        self.events = Vec::new();
     }
+
+    fn get_next_id(&mut self) -> usize {
+        let v = self.ent_list.len();
+        self.ent_list.push(v);
+        v
+    }
+
+    fn register_ent(&mut self, systems: Vec<SystemTypes>) {
+
+    }
+}
+
+fn createEnt(world: &mut World) {
+    let ent_id = world.get_next_id();
+
+    // components used by ent
+    let gfx = Renderable{ comp_type: ComponetTypes::Renderable, gfx: '@' };
+
+    // who to register to
+    let register_to = vec![SystemTypes::Renderer];
+
+    
 }
 
 fn main() {
     let mut w = World::new();
-
-    w.add_event(Event::Render);
-
     w.add_system(Renderer::create());
 
     w.run();
     w.clear();
+}
+
+
+trait Componet {}
+
+#[derive(Debug)]
+struct Renderable {
+    comp_type: ComponetTypes,
+    gfx: char,
+}
+
+impl Componet for Renderable {
+
 }
