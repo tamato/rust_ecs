@@ -34,7 +34,7 @@ impl System for Renderer {
     fn process(&self, world: &World) {
         for ent in &self.who {
             let gfx = &world.gfx_componets[*ent];
-            println!("Rendering {:?}!", gfx as Renderable);
+            println!("Rendering {:?}!", gfx);
         }
     }
 }
@@ -118,3 +118,5 @@ struct Renderable {
 impl Componet for Renderable {
 
 }
+
+// https://stackoverflow.com/questions/33687447/how-to-get-a-struct-reference-from-a-boxed-trait
