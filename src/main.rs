@@ -1,169 +1,87 @@
-
-#[derive(Debug)]
-struct Point2 {
-    x:i32,
-    y:i32,
-}
-
-#[derive(Debug)]
-struct World {
-    shutDown: bool,
-
-    // entities
-    things:Vec<usize>,
-
-    // components
-    positions:Vec<Point2>,
-
-    // systems / events
-    systems_to_run: Vec<SystemTypes>,
-    next_cycle_systems: Vec<SystemTypes>,
-
-    // resources
-    delta_time: f32,
-    // total_time: f32,
-}
-
-impl World {
-    fn new() -> Self {
-        World {
-            shutDown: false,
-            things: vec![0],
-            positions: vec![Point2{x:0, y:0}],
-            systems_to_run: Vec::new(),
-            next_cycle_systems:Vec::new(),
-            delta_time: 0.001,
-        }
-    }
-
-    fn run_systems(&mut self, systems: &mut Systems) {
-        println!("start run_systems");
-        let tmp_systems: Vec<SystemTypes> = self.systems_to_run.drain(..).collect();
-        for sys_type in tmp_systems {
-            systems.test(self, sys_type)
-        }
-        
-        self.systems_to_run = self.next_cycle_systems.drain(..).collect();
-        self.next_cycle_systems = Vec::new();
-        println!("end run_systems");
-    }
-
-    fn enqueue_system(&mut self, sys_type: SystemTypes) {
-        self.next_cycle_systems.push(sys_type);
-    }
-
-    fn intial_systems(&mut self, sys_type: SystemTypes) {
-        self.systems_to_run.push(sys_type);
-    }
-}
-
-#[derive(Debug)]
-enum SystemTypes {
-    PlayerInputType,
-    CloseAppType,
-    WalkType,
-}
-
-struct Systems {
-    player_input: PlayerInput,
-    walk: Walk,
-    close: CloseApp,
-}
-impl Systems {
-    fn new() -> Self {
-        Systems {
-            player_input: PlayerInput{},
-            walk: Walk{},
-            close: CloseApp{},
-        }
-    }
-    fn test(&mut self, world: &mut World, sys_type: SystemTypes) {
-        println!("running test...");
-        match sys_type {
-            SystemTypes::PlayerInputType => self.player_input.process(world),
-            SystemTypes::CloseAppType => self.close.process(world),
-            SystemTypes::WalkType => self.walk.process(world),
-        }
-    }
+#[derive(Debug, PartialEq)]
+enum Event {
+    Render,
 }
 
 trait System {
-    fn process(&self, world: &mut World);
+    fn process(&self);
+    fn listening(&self, event: &Event) -> bool;
 }
 
 #[derive(Debug)]
-struct PlayerInput;
-impl System for PlayerInput {
-    fn process(&self, world: &mut World) {
-        let mut line = String::new();
-        std::io::stdin().read_line(&mut line).expect("Failed to read line");
-        let trimed = line.trim();
-        println!("You entered: {} ---", trimed);
+struct Renderer {
+    who:i32,
+    listens_to: Event,
+}
 
-        // use std::io::Read;
-        // let input: Option<i32> = std::io::stdin()
-        //     .bytes() 
-        //     .next()
-        //     .and_then(|result| result.ok())
-        //     .map(|byte| byte as i32);
-        // println!("Byte: {:?}", input);
-        // world.enqueue_system(SystemTypes::PlayerInputType);
-
-        match trimed.as_ref() {
-            "qq"  => world.enqueue_system(SystemTypes::CloseAppType),
-            "exit"=> world.enqueue_system(SystemTypes::CloseAppType),
-            "2"|"4"|"6"|"8" => {
-                println!("You pressed a direction");
-                world.enqueue_system(SystemTypes::PlayerInputType);
-            },
-            _ => world.enqueue_system(SystemTypes::PlayerInputType),
-        };
-        
+impl Renderer {
+    fn create() -> Self {
+        Renderer {
+            who: 0,
+            listens_to: Event::Render,
+        }
     }
 }
 
-#[derive(Debug)]
-struct CloseApp;
-impl System for CloseApp {
-    fn process(&self, world: &mut World) {
-        world.shutDown = true;
-        println!("Shutting it down!");
+impl System for Renderer {
+    fn process(&self) {
+        println!("Rendering {:?}!", self);
+    }
+
+    fn listening(&self, event: &Event) -> bool
+    {
+        self.listens_to == *event
     }
 }
 
-#[derive(Debug)]
-struct Walk {
-    ids: Vec<usize>,
-};
-impl System for Walk {
-    fn process(&self, world: &mut World) {
-        // this needs to know WHO is trying to walk
-        println!("do walk...");
+// find a way to pass in a RenderData, which is a datatype that has different properties
+type SystemVec<'a> = Vec<Box<System + 'a>>;
+struct World<'a> {
+    systems: SystemVec<'a>,
+    events: Vec<Event>,
+
+    // components
+
+}
+impl<'a> World<'a> {
+    fn new() -> Self {
+        World {
+            systems: Vec::new(),
+            events: Vec::new(),
+        }
+    }
+
+    fn add_event(&mut self, event: Event) {
+        self.events.push(event);
+    }
+
+    fn add_system<S: System + 'a>(&mut self, system: S) {
+        self.systems.push(Box::new(system));
+    }
+
+    fn run(&self) {
+        for evt in &self.events {
+            for sys in &self.systems {
+                if sys.listening(evt) {
+                    sys.process();
+                }
+            }
+        }
+    }
+
+    fn clear(&mut self) {
+        self.systems = Vec::new();
+        self.events = Vec::new();
     }
 }
 
 fn main() {
     let mut w = World::new();
-    let mut s = Systems::new();
-    
-    w.intial_systems(SystemTypes::PlayerInputType);
 
-    while w.shutDown == false {
-        println!("main loop");
-        w.run_systems(&mut s);
-    }
+    w.add_event(Event::Render);
+
+    w.add_system(Renderer::create());
+
+    w.run();
+    w.clear();
 }
-
-
-/*
-    player update {
-        input match
-        move
-        menu
-            menus
-            abilities
-            inventory
-            help
-    }
-*/
-
