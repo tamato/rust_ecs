@@ -1,0 +1,6 @@
+[package]
+name = "ces"
+version = "0.1.0"
+authors = ["ahrimen <terence.amato@gmail.com>"]
+
+[dependencies]
