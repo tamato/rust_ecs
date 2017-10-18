@@ -1,122 +1,134 @@
-#[derive(Debug)]
-enum SystemTypes {
-    Renderer,
+// accordng to some the Observer pattern is too OOP for Rust
+//  going to try an event system
+//  push all events in one loop
+//  process all of them
+
+// for something like combat,
+//  attack loc -> event system
+//  
+
+struct EventList<'a> {
+    list: Vec<Box<Event + 'a>>,
 }
 
-#[derive(Debug)]
-enum ComponetTypes {
-    Renderable,
-}
-
-trait System {
-    fn register_ent(&mut self, ent: usize);
-    fn process(&self, world: &World);
-}
-
-#[derive(Debug)]
-struct Renderer {
-    who:Vec<usize>,
-}
-
-impl Renderer {
-    fn create() -> Self {
-        Renderer {
-            who: Vec::new(),
-        }
-    }
-}
-
-impl System for Renderer {
-    fn register_ent(&mut self, ent: usize) {
-        self.who.push(ent);
-    }
-
-    fn process(&self, world: &World) {
-        for ent in &self.who {
-            let gfx = &world.gfx_componets[*ent];
-            println!("Rendering {:?}!", gfx);
-        }
-    }
-}
-
-// find a way to pass in a RenderData, which is a datatype that has different properties
-type SystemVec<'a> = Vec<Box<System + 'a>>;
-type ComponetVec<'a> = Vec<Box<Componet + 'a>>;
-struct World<'a> {
-    systems: SystemVec<'a>,
-
-    // components
-    gfx_componets: ComponetVec<'a>,
-
-    /// list of unique ids for the entities
-    ent_list: Vec<usize>,
-}
-
-impl<'a> World<'a> {
+impl<'a> EventList<'a> {
     fn new() -> Self {
-        World {
-            systems: Vec::new(),
-            gfx_componets: Vec::new(),
-            ent_list: Vec::new(),
+        EventList {
+            list: Vec::new(),
         }
     }
 
-    fn add_system<S: System + 'a>(&mut self, system: S) {
-        self.systems.push(Box::new(system));
+    fn add<E>(&mut self, event: E )
+        where E: Event + 'a 
+    {
+        self.list.push(Box::new(event));
     }
 
-    fn run(&self) {
-        for sys in &self.systems {
-            sys.process(self);
-        }
+    fn run(&self, comp: &ComponentList) {
+        for evt in &self.list {
+            evt.run(comp);
+        }        
     }
 
     fn clear(&mut self) {
-        self.systems = Vec::new();
-    }
-
-    fn get_next_id(&mut self) -> usize {
-        let v = self.ent_list.len();
-        self.ent_list.push(v);
-        v
-    }
-
-    fn register_ent(&mut self, systems: Vec<SystemTypes>) {
-
+        self.list.clear();
     }
 }
 
-fn createEnt(world: &mut World) {
-    let ent_id = world.get_next_id();
 
-    // components used by ent
-    let gfx = Renderable{ comp_type: ComponetTypes::Renderable, gfx: '@' };
+struct ComponentList {
+    gfx: Vec<char>,
+}
 
-    // who to register to
-    let register_to = vec![SystemTypes::Renderer];
+impl ComponentList {
+    fn new() -> Self {
+        ComponentList {
+            gfx: Vec::new(),
+        }
+    }
 
-    
+    fn add(&mut self, entity: usize, c_type: ComponentType, val: char ) {
+        match c_type {
+            ComponentType::Gfx => self.gfx.push(val),
+        }
+    }
 }
 
 fn main() {
-    let mut w = World::new();
-    w.add_system(Renderer::create());
+    let mut events = EventList::new();
+    let mut comps = ComponentList::new();
 
-    w.run();
-    w.clear();
+    comps.add(0, ComponentType::Gfx, 'G');
+
+    let p = Print{x:0};
+    events.add(p);
+    events.run(&comps);
+    events.clear();
+}
+
+trait Event {
+    fn run(&self, comp: &ComponentList);
+}
+
+struct Print {
+    x: usize,
+}
+
+impl Event for Print {
+    fn run(&self, comp: &ComponentList) {
+        let val = &comp.gfx[self.x];
+        println!("values! {}, {}", self.x, val);
+    }
+}
+
+enum ComponentType {
+    Gfx,
+}
+
+/*
+https://stackoverflow.com/questions/37572734/how-can-i-implement-the-observer-pattern-in-rust
+https://users.rust-lang.org/t/how-can-i-correctly-implement-observer-pattern-in-rust/6058/7
+
+pub trait Aggregate<TEvent>: Default {
+  fn apply(&mut self, e: &TEvent);
+}
+
+#[allow(non_camel_case_types)]
+pub enum Event {
+ COUNTER_DECREASED { count: i32, amount: i32 },
+ COUNTER_INCREASED { count: i32, amount: i32 },
+}
+
+pub struct Counter {
+ count: i32,
+}
+
+impl Default for Counter {
+ fn default() -> Self {
+   Counter {
+     count: 0
+   }
+ }
+}
+
+impl Aggregate<Event> for Counter {
+ fn apply(&mut self, e: &Event) {
+   match *e {
+     Event::COUNTER_DECREASED { count, .. } => self.count = count,
+     Event::COUNTER_INCREASED { count, .. } => self.count = count,
+   }
+ }
+}
+
+impl Counter {
+ pub fn decrease(&self, amount: i32) -> [Event; 1] {
+   [Event::COUNTER_DECREASED { count: self.count - amount, amount: amount }]
+ }
+
+ pub fn increase(&self, amount: i32) -> [Event; 1] {
+   [Event::COUNTER_INCREASED { count: self.count + amount, amount: amount }]
+ }
 }
 
 
-trait Componet {}
-
-#[derive(Debug)]
-struct Renderable {
-    comp_type: ComponetTypes,
-    gfx: char,
-}
-
-impl Componet for Renderable {
-
-}
-
-// https://stackoverflow.com/questions/33687447/how-to-get-a-struct-reference-from-a-boxed-trait
+*/
