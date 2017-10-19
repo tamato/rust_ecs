@@ -5,7 +5,7 @@
 
 // for something like combat,
 //  attack loc -> event system
-//  
+//  dont think too much about it, just try it all in events and think about it at the end.
 
 use std::any::Any;
 use std::collections::HashMap;
@@ -38,20 +38,26 @@ impl<'a> EventList<'a> {
     }
 }
 
+type ComponentMap = HashMap<usize, Box<Any>>;
 struct ComponentList {
-    gfx: HashMap<usize, Box<Any>>,
+    components: HashMap< ComponentType, ComponentMap >,
 }
 
 impl ComponentList {
     fn new() -> Self {
         ComponentList {
-            gfx: HashMap::new(),
+            components: HashMap::new(),
         }
     }
 
     fn add(&mut self, entity: usize, c_type: ComponentType, val: char ) {
-        match c_type {
-            ComponentType::Gfx => self.gfx.insert(entity, Box::new(val)),
+        match self.components.get(&c_type) {
+            Some(comp) => comp.insert(entity, Box::new(val)),
+            None => {
+                let first: ComponentMap = HashMap::new();
+                first.insert(entity, Box::new(val));
+                self.components.insert(c_type, first);
+            },
         };
     }
 }
@@ -112,64 +118,30 @@ struct Print {
 
 impl Event for Print {
     fn run(&self, comp: &ComponentList) {
-        match comp.gfx.get(&self.x) {
-            Some(value_any) => match value_any.downcast_ref::<char>() {
-                Some(val) => println!("values! {}, {}", self.x, val),
-                None => (),
-            },
-            None => (),
-        }
+        get_val(&self.x, comp, |val| {
+            println!("values! {}, {}", self.x, val);
+        });
     }
 }
 
+fn get_val<F>(id: &usize, comp: &ComponentList, func: F)
+    where F: Fn(char)
+{
+    match comp.components.get(&ComponentType::Gfx) {
+        Some(gfx_comp) => match gfx_comp.get(&id) {
+            Some(value_any) => match value_any.downcast_ref::<char>() {
+                /***                              *******/
+                Some(val) => func( val ),
+                /***                              *******/
+                None => panic!("val in Print is not of type char!"),
+            },
+            None => panic!("Print is missing self.x value"),
+        },
+        None => panic!("ComponentType::Gfx has not been added to ComponentList"),
+    }
+}
+
+#[derive(Eq, PartialEq, Hash)]
 enum ComponentType {
     Gfx,
 }
-
-/*
-https://stackoverflow.com/questions/37572734/how-can-i-implement-the-observer-pattern-in-rust
-https://users.rust-lang.org/t/how-can-i-correctly-implement-observer-pattern-in-rust/6058/7
-
-pub trait Aggregate<TEvent>: Default {
-  fn apply(&mut self, e: &TEvent);
-}
-
-#[allow(non_camel_case_types)]
-pub enum Event {
- COUNTER_DECREASED { count: i32, amount: i32 },
- COUNTER_INCREASED { count: i32, amount: i32 },
-}
-
-pub struct Counter {
- count: i32,
-}
-
-impl Default for Counter {
- fn default() -> Self {
-   Counter {
-     count: 0
-   }
- }
-}
-
-impl Aggregate<Event> for Counter {
- fn apply(&mut self, e: &Event) {
-   match *e {
-     Event::COUNTER_DECREASED { count, .. } => self.count = count,
-     Event::COUNTER_INCREASED { count, .. } => self.count = count,
-   }
- }
-}
-
-impl Counter {
- pub fn decrease(&self, amount: i32) -> [Event; 1] {
-   [Event::COUNTER_DECREASED { count: self.count - amount, amount: amount }]
- }
-
- pub fn increase(&self, amount: i32) -> [Event; 1] {
-   [Event::COUNTER_INCREASED { count: self.count + amount, amount: amount }]
- }
-}
-
-
-*/
