@@ -7,6 +7,9 @@
 //  attack loc -> event system
 //  
 
+use std::any::Any;
+use std::collections::HashMap;
+
 struct EventList<'a> {
     list: Vec<Box<Event + 'a>>,
 }
@@ -35,35 +38,68 @@ impl<'a> EventList<'a> {
     }
 }
 
-
 struct ComponentList {
-    gfx: Vec<char>,
+    gfx: HashMap<usize, Box<Any>>,
 }
 
 impl ComponentList {
     fn new() -> Self {
         ComponentList {
-            gfx: Vec::new(),
+            gfx: HashMap::new(),
         }
     }
 
     fn add(&mut self, entity: usize, c_type: ComponentType, val: char ) {
         match c_type {
-            ComponentType::Gfx => self.gfx.push(val),
-        }
+            ComponentType::Gfx => self.gfx.insert(entity, Box::new(val)),
+        };
     }
 }
 
 fn main() {
     let mut events = EventList::new();
     let mut comps = ComponentList::new();
+    let mut ents = Entities::new();
 
-    comps.add(0, ComponentType::Gfx, 'G');
+    let ent0 = ents.create();
+    let p0 = Print{x:ent0};
 
-    let p = Print{x:0};
-    events.add(p);
+    let ent1 = ents.create();
+    let p1 = Print{x:ent1};
+
+    comps.add(ent0, ComponentType::Gfx, 'G');
+    comps.add(ent1, ComponentType::Gfx, 'Z');
+
+    events.add(p0);
+    events.add(p1);
     events.run(&comps);
     events.clear();
+
+    let p1 = Print{x:ent1};
+    events.add(p1);
+    events.run(&comps);
+    events.clear();
+}
+
+struct Entities {
+    next_free: usize,
+    list: Vec<usize>,
+}
+
+impl Entities {
+    fn new() -> Self {
+        Entities {
+            next_free: 0,
+            list: Vec::new(),
+        }
+    }
+
+    fn create(&mut self) -> usize {
+        let result = self.next_free;
+        self.list.push(result);
+        self.next_free = self.list.len();
+        result
+    }
 }
 
 trait Event {
@@ -76,8 +112,13 @@ struct Print {
 
 impl Event for Print {
     fn run(&self, comp: &ComponentList) {
-        let val = &comp.gfx[self.x];
-        println!("values! {}, {}", self.x, val);
+        match comp.gfx.get(&self.x) {
+            Some(value_any) => match value_any.downcast_ref::<char>() {
+                Some(val) => println!("values! {}, {}", self.x, val),
+                None => (),
+            },
+            None => (),
+        }
     }
 }
 
