@@ -1,15 +1,4 @@
-#[derive(Debug)]
-enum SystemTypes {
-    Renderer,
-}
-
-#[derive(Debug)]
-enum ComponetTypes {
-    Renderable,
-}
-
 trait System {
-    fn register_ent(&mut self, ent: usize);
     fn process(&self, world: &World);
 }
 
@@ -27,12 +16,8 @@ impl Renderer {
 }
 
 impl System for Renderer {
-    fn register_ent(&mut self, ent: usize) {
-        self.who.push(ent);
-    }
-
     fn process(&self, world: &World) {
-        for ent in &self.who {
+        for ent in &world.ent_list {
             let gfx = &world.gfx_componets[*ent];
             println!("Rendering {:?}!", gfx);
         }
@@ -41,12 +26,11 @@ impl System for Renderer {
 
 // find a way to pass in a RenderData, which is a datatype that has different properties
 type SystemVec<'a> = Vec<Box<System + 'a>>;
-type ComponetVec<'a> = Vec<Box<Componet + 'a>>;
 struct World<'a> {
     systems: SystemVec<'a>,
 
     // components
-    gfx_componets: ComponetVec<'a>,
+    gfx_componets: Vec<char>,
 
     /// list of unique ids for the entities
     ent_list: Vec<usize>,
@@ -80,22 +64,6 @@ impl<'a> World<'a> {
         self.ent_list.push(v);
         v
     }
-
-    fn register_ent(&mut self, systems: Vec<SystemTypes>) {
-
-    }
-}
-
-fn createEnt(world: &mut World) {
-    let ent_id = world.get_next_id();
-
-    // components used by ent
-    let gfx = Renderable{ comp_type: ComponetTypes::Renderable, gfx: '@' };
-
-    // who to register to
-    let register_to = vec![SystemTypes::Renderer];
-
-    
 }
 
 fn main() {
@@ -111,7 +79,6 @@ trait Componet {}
 
 #[derive(Debug)]
 struct Renderable {
-    comp_type: ComponetTypes,
     gfx: char,
 }
 
