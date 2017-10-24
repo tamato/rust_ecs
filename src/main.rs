@@ -1,84 +1,91 @@
 use std::collections::HashMap;
-use std::ops::Index;
 
 #[derive(Eq, PartialEq, Debug, Hash, Clone)]
-enum Messages {
+enum MessageType {
     Render,
+    BasicMelee,
 }
 
-trait System {
-    fn process(&self, world: &World);
-    fn process_ent(&self, who: usize, world: &World);
+trait MsgSystem {
+    fn process(&self, who: usize, world: &World);
 }
 
 #[derive(Debug)]
-struct Renderer {
-    who:Vec<usize>,
-}
+struct Renderer;
 
 impl Renderer {
-    fn create() -> Self {
+    fn new() -> Self {
         Renderer {
-            who: Vec::new(),
         }
     }
 }
 
-impl System for Renderer {
-    fn process(&self, world: &World) {
-        for ent in &world.ent_list {
-            let gfx = &world.gfx_componets[*ent];
-            println!("Rendering {:?}!", gfx);
-        }
-    }
-    fn process_ent(&self, who: usize, world: &World)
-    {
+impl MsgSystem for Renderer {
+    fn process(&self, who: usize, world: &World) {
         let gfx = &world.gfx_componets[who];
         println!("Rendering {:?}!", gfx);
     }
 }
 
-// find a way to pass in a RenderData, which is a datatype that has different properties
-type SystemVec<'a> = Vec<Box<System + 'a>>;
-struct World<'a> {
-    systems: SystemVec<'a>,
+#[derive(Debug)]
+struct BasicMeleeAtk {
+    def:Vec<usize>,
+}
 
-    // components
-    gfx_componets: Vec<char>,
+impl BasicMeleeAtk {
+    fn new() -> Self {
+        BasicMeleeAtk {
+            def: Vec::new(),
+        }
+    }
+}
+
+impl MsgSystem for BasicMeleeAtk {
+    fn process(&self, who: usize, world: &World) {
+        let def_id = &world.target_components[who];
+        let def_gfx = &world.gfx_componets[*def_id];
+
+        let atk_gfx = &world.gfx_componets[who];
+        println!("{:?} is attacking {:?}!", atk_gfx, def_gfx);
+    }
+}
+
+type MsgSystemVec<'a> = Vec<Box<MsgSystem + 'a>>;
+struct World<'a> {
+    // list of the different message traits
+    systems: MsgSystemVec<'a>,
+
+    // pairings between a message system and which entities to act on
+    msg_who: HashMap<MessageType, Vec<usize>>,
 
     /// list of unique ids for the entities
     ent_list: Vec<usize>,
 
-
-    // list of messages 
-    msg_who: HashMap<Messages, Vec<usize>>,
+    // components
+    gfx_componets: Vec<char>,
+    target_components: Vec<usize>,
 }
 
 impl<'a> World<'a> {
     fn new() -> Self {
         World {
             systems: Vec::new(),
-            gfx_componets: Vec::new(),
             ent_list: Vec::new(),
             msg_who: HashMap::new(),
+            gfx_componets: Vec::new(),
+            target_components: Vec::new(),
         }
     }
 
-    fn add_system<S: System + 'a>(&mut self, system: S) {
+    fn add_system<S: MsgSystem + 'a>(&mut self, system: S) {
         self.systems.push(Box::new(system));
     }
 
     fn run(&self) {
-        for sys in &self.systems {
-            sys.process(self);
-        }
-    }
-
-    fn run_msg(&self) {
         for (msg, ent_vec) in &self.msg_who {
             let sys = &self.systems[ msg.clone() as usize ];
             for ent in ent_vec.iter() {
-                sys.process_ent(*ent, self);
+                sys.process(*ent, self);
             }
         }   
     }
@@ -87,45 +94,33 @@ impl<'a> World<'a> {
         self.systems = Vec::new();
     }
 
-    fn get_next_id(&mut self) -> usize {
-        let v = self.ent_list.len();
-        self.ent_list.push(v);
-        v
-    }
+    // fn get_next_id(&mut self) -> usize {
+    //     let v = self.ent_list.len();
+    //     self.ent_list.push(v);
+    //     v
+    // }
 
-    fn add_msg(&mut self, msg: Messages, who: usize) {
-        self.msg_who.entry(msg).or_insert(Vec::new()).push(who);
+    fn add_msg(&mut self, msg: MessageType, who: usize) {
+        self.msg_who
+            .entry(msg)             // get the value of the passed in key
+            .or_insert(Vec::new())  // if it does not exist, create a new one
+            .push(who);             // push value into the vec at this key
     }
 }
 
 fn main() {
     let mut w = World::new();
-    w.add_system(Renderer::create());
 
-    w.run();
-    w.clear();
+    w.add_system(Renderer::new());
+    w.add_system(BasicMeleeAtk::new());
 
-    w.add_system(Renderer::create());
     w.ent_list.push(0);
     w.gfx_componets.push('@');
     w.ent_list.push(1);
-    w.gfx_componets.push('#');
+    w.gfx_componets.push('B');
 
-    w.add_msg(Messages::Render, 0);
-    w.add_msg(Messages::Render, 1);
-    w.run_msg();
+    w.add_msg(MessageType::Render, 0);
+    w.add_msg(MessageType::Render, 1);
+    w.run();
+    w.clear();
 }
-
-
-trait Componet {}
-
-#[derive(Debug)]
-struct Renderable {
-    gfx: char,
-}
-
-impl Componet for Renderable {
-
-}
-
-// https://stackoverflow.com/questions/33687447/how-to-get-a-struct-reference-from-a-boxed-trait
