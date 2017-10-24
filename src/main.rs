@@ -92,6 +92,10 @@ impl<'a> World<'a> {
         self.ent_list.push(v);
         v
     }
+
+    fn add_msg(&mut self, msg: Messages, who: usize) {
+        self.msg_who.entry(msg).or_insert(Vec::new()).push(who);
+    }
 }
 
 fn main() {
@@ -107,8 +111,8 @@ fn main() {
     w.ent_list.push(1);
     w.gfx_componets.push('#');
 
-    w.msg_who.entry(Messages::Render).or_insert(Vec::new()).push(0);
-    w.msg_who.entry(Messages::Render).or_insert(Vec::new()).push(1);
+    w.add_msg(Messages::Render, 0);
+    w.add_msg(Messages::Render, 1);
     w.run_msg();
 }
 
