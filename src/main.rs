@@ -42,7 +42,7 @@ impl BasicMeleeAtk {
 
 impl MsgSystem for BasicMeleeAtk {
     fn process(&self, who: usize, world: &World) {
-        let def_id = &world.target_components[who];
+        let def_id = world.target_components[who].clone();
         let def_gfx = &world.gfx_componets[*def_id];
 
         let atk_gfx = &world.gfx_componets[who];
