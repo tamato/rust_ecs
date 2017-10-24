@@ -1,5 +1,14 @@
+use std::collections::HashMap;
+use std::ops::Index;
+
+#[derive(Eq, PartialEq, Debug, Hash, Clone)]
+enum Messages {
+    Render,
+}
+
 trait System {
     fn process(&self, world: &World);
+    fn process_ent(&self, who: usize, world: &World);
 }
 
 #[derive(Debug)]
@@ -22,6 +31,11 @@ impl System for Renderer {
             println!("Rendering {:?}!", gfx);
         }
     }
+    fn process_ent(&self, who: usize, world: &World)
+    {
+        let gfx = &world.gfx_componets[who];
+        println!("Rendering {:?}!", gfx);
+    }
 }
 
 // find a way to pass in a RenderData, which is a datatype that has different properties
@@ -34,6 +48,10 @@ struct World<'a> {
 
     /// list of unique ids for the entities
     ent_list: Vec<usize>,
+
+
+    // list of messages 
+    msg_who: HashMap<Messages, Vec<usize>>,
 }
 
 impl<'a> World<'a> {
@@ -42,6 +60,7 @@ impl<'a> World<'a> {
             systems: Vec::new(),
             gfx_componets: Vec::new(),
             ent_list: Vec::new(),
+            msg_who: HashMap::new(),
         }
     }
 
@@ -53,6 +72,15 @@ impl<'a> World<'a> {
         for sys in &self.systems {
             sys.process(self);
         }
+    }
+
+    fn run_msg(&self) {
+        for (msg, ent_vec) in &self.msg_who {
+            let sys = &self.systems[ msg.clone() as usize ];
+            for ent in ent_vec.iter() {
+                sys.process_ent(*ent, self);
+            }
+        }   
     }
 
     fn clear(&mut self) {
@@ -72,6 +100,16 @@ fn main() {
 
     w.run();
     w.clear();
+
+    w.add_system(Renderer::create());
+    w.ent_list.push(0);
+    w.gfx_componets.push('@');
+    w.ent_list.push(1);
+    w.gfx_componets.push('#');
+
+    w.msg_who.entry(Messages::Render).or_insert(Vec::new()).push(0);
+    w.msg_who.entry(Messages::Render).or_insert(Vec::new()).push(1);
+    w.run_msg();
 }
 
 
