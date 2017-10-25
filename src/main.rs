@@ -1,39 +1,92 @@
-// accordng to some the Observer pattern is too OOP for Rust
-//  going to try an event system
-//  push all events in one loop
-//  process all of them
+trait MsgSystem {
+    fn process(&self, world: &World);
+}
 
-// for something like combat,
-//  attack loc -> event system
-//  dont think too much about it, just try it all in events and think about it at the end.
+#[derive(Debug)]
+struct Renderer {
+    who: usize,
+}
 
-type Observer = Box<Fn()>;
+impl MsgSystem for Renderer {
+    fn process(&self, world: &World) {
+        let atk_gfx = &world.gfx_componets[self.who];
+        println!("Single {:?}!", atk_gfx);
+    }
+}
 
-// subjects
-struct Subject {
-    obs: Vec<Observer>,
+#[derive(Debug)]
+struct BasicMeleeAtk {
+    atk: usize,
+    def: usize,
+}
+
+impl MsgSystem for BasicMeleeAtk {
+    fn process(&self, world: &World) {
+        let atk_gfx = &world.gfx_componets[self.atk];
+        let def_gfx = &world.gfx_componets[self.def];
+        println!("{:?} is attacking {:?}!", atk_gfx, def_gfx);
+    }
+}
+
+type MsgSystemVec<'a> = Vec<Box<MsgSystem + 'a>>;
+struct World<'a> {
+    // list of the different message traits
+    messages: MsgSystemVec<'a>,
+
+    /// list of unique ids for the entities
+    ent_list: Vec<usize>,
+
+    // components
+    gfx_componets: Vec<char>,
+}
+
+impl<'a> World<'a> {
+    fn new() -> Self {
+        World {
+            messages: Vec::new(),
+            ent_list: Vec::new(),
+            gfx_componets: Vec::new(),
+        }
+    }
+
+    fn clear(&mut self) {
+        self.messages = Vec::new();
+    }
+
+    // fn get_next_id(&mut self) -> usize {
+    //     let v = self.ent_list.len();
+    //     self.ent_list.push(v);
+    //     v
+    // }
+
+    fn run(&mut self) {
+        for msg in &self.messages {
+            msg.process(self);
+        }
+    }
+
+    fn add_message<M>(&mut self, msg: M)
+        where M: MsgSystem + 'a
+    {
+        self.messages.push(Box::new(msg));
+    }
 }
 
 fn main() {
-    let a = ||{ println!("hello"); };
-    let b = ||{ println!(" world"); };
+    let mut w = World::new();
 
+    w.ent_list.push(0);
+    w.gfx_componets.push('@');
+    w.ent_list.push(1);
+    w.gfx_componets.push('B');
 
-    let mut s = Subject {
-        obs: vec![Box::new(a), Box::new(b)],
-    };
+    w.add_message(Renderer{who:0});
+    w.add_message(Renderer{who:1});
 
-    for x in &s.obs {
-        x();
-    }
-
-    let ez = 999;
-    s.obs.push(Box::new( move ||{
-        println!("this is not {}", ez);
-    }));
-
-    for x in &s.obs {
-        x();
-    }
+    w.add_message(BasicMeleeAtk{atk:0, def:1});
+    w.add_message(BasicMeleeAtk{atk:1, def:0});
+    w.run();
+    w.clear();
 }
+
 
