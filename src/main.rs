@@ -1,6 +1,8 @@
 
 extern crate rust_ecs;
-use rust_ecs::*;
+use rust_ecs::world::*;
+use rust_ecs::msgsystem::*;
+use rust_ecs::components::*;
 
 fn main() {
     let mut w = World::new();
